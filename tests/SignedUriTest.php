@@ -4,7 +4,8 @@ namespace Zenstruck\Uri\Tests;
 
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpKernel\UriSigner;
+use Symfony\Component\HttpFoundation\UriSigner;
+use Symfony\Component\HttpKernel\UriSigner as LegacyUriSigner;
 use Zenstruck\Uri;
 use Zenstruck\Uri\Signed\Exception\ExpiredUri;
 use Zenstruck\Uri\Signed\Exception\InvalidSignature;
@@ -60,8 +61,10 @@ final class SignedUriTest extends TestCase
 
     public static function validSignedUrlProvider(): iterable
     {
+        $class = \class_exists(UriSigner::class) ? UriSigner::class : LegacyUriSigner::class;
+
         yield ['/foo/bar', '1234'];
-        yield ['/foo/bar', new UriSigner('1234')];
+        yield ['/foo/bar', new $class('1234')];
         yield ['http://example.com/foo/bar?baz=1', '1234'];
         yield ['/foo/bar', '1234', 5];
         yield ['/foo/bar', '1234', 'tomorrow'];
@@ -97,9 +100,10 @@ final class SignedUriTest extends TestCase
     public static function invalidSignedUrlProvider(): iterable
     {
         $builder = Uri::new('/foo/bar')->sign('1234');
+        $class = \class_exists(UriSigner::class) ? UriSigner::class : LegacyUriSigner::class;
 
         yield [$builder->create(), '4321', InvalidSignature::class];
-        yield [$builder->create(), new UriSigner('4321'), InvalidSignature::class];
+        yield [$builder->create(), new $class('4321'), InvalidSignature::class];
         yield [$builder->expires(-5)->create(), '1234', ExpiredUri::class];
         yield [$builder->expires('yesterday')->create(), '1234', ExpiredUri::class];
         yield [$builder->singleUse('token')->create(), '1234', InvalidSignature::class];

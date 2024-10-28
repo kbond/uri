@@ -2,7 +2,8 @@
 
 namespace Zenstruck\Uri\Signed;
 
-use Symfony\Component\HttpKernel\UriSigner;
+use Symfony\Component\HttpFoundation\UriSigner;
+use Symfony\Component\HttpKernel\UriSigner as LegacyUriSigner;
 use Zenstruck\Uri;
 use Zenstruck\Uri\SignedUri;
 
@@ -14,18 +15,18 @@ use Zenstruck\Uri\SignedUri;
 final class Builder implements \Stringable
 {
     private Uri $uri;
-    private UriSigner $signer;
+    private UriSigner|LegacyUriSigner $signer; // @phpstan-ignore-line
     private ?\DateTimeImmutable $expiresAt = null;
     private ?string $singleUseToken = null;
 
     /**
      * @internal
      *
-     * @param string|UriSigner $secret
+     * @param string|UriSigner|LegacyUriSigner $secret
      */
-    public function __construct(Uri $uri, $secret)
+    public function __construct(Uri $uri, $secret) // @phpstan-ignore-line
     {
-        if (!\class_exists(UriSigner::class)) {
+        if (!\class_exists(UriSigner::class) && !\class_exists(LegacyUriSigner::class)) {
             throw new \LogicException('symfony/http-kernel is required to sign URIs. composer require symfony/http-kernel.');
         }
 
@@ -34,7 +35,11 @@ final class Builder implements \Stringable
         }
 
         $this->uri = $uri;
-        $this->signer = $secret instanceof UriSigner ? $secret : new UriSigner($secret);
+        $this->signer = match(true) {
+            $secret instanceof UriSigner, $secret instanceof LegacyUriSigner => $secret, // @phpstan-ignore-line
+            \class_exists(UriSigner::class) => new UriSigner($secret),
+            default => new LegacyUriSigner($secret), // @phpstan-ignore-line
+        };
     }
 
     public function __toString(): string
@@ -99,9 +104,9 @@ final class Builder implements \Stringable
     /**
      * @internal
      *
-     * @return array{0:Uri,1:UriSigner,2:\DateTimeImmutable|null,3:string|null}
+     * @return array{0:Uri,1:UriSigner|LegacyUriSigner,2:\DateTimeImmutable|null,3:string|null}
      */
-    public function context(): array
+    public function context(): array // @phpstan-ignore-line
     {
         return [$this->uri, $this->signer, $this->expiresAt, $this->singleUseToken];
     }

@@ -2,7 +2,8 @@
 
 namespace Zenstruck\Uri;
 
-use Symfony\Component\HttpKernel\UriSigner;
+use Symfony\Component\HttpFoundation\UriSigner;
+use Symfony\Component\HttpKernel\UriSigner as LegacyUriSigner;
 use Zenstruck\Uri;
 use Zenstruck\Uri\Signed\Builder;
 use Zenstruck\Uri\Signed\Exception\ExpiredUri;
@@ -52,10 +53,12 @@ final class SignedUri extends Uri
         }
 
         if ($singleUseToken) {
-            $uri = (new UriSigner($singleUseToken, self::SINGLE_USE_TOKEN_KEY))->sign($uri);
+            $class = \class_exists(UriSigner::class) ? UriSigner::class : LegacyUriSigner::class; // @phpstan-ignore-line
+
+            $uri = (new $class($singleUseToken, self::SINGLE_USE_TOKEN_KEY))->sign($uri); // @phpstan-ignore-line
         }
 
-        return new self($signer->sign($uri), $expiresAt);
+        return new self($signer->sign($uri), $expiresAt); // @phpstan-ignore-line
     }
 
     public function expiresAt(): ?\DateTimeImmutable
@@ -74,11 +77,11 @@ final class SignedUri extends Uri
     }
 
     /**
-     * @param string|UriSigner $secret
+     * @param string|UriSigner|LegacyUriSigner $secret
      */
-    protected static function createVerified(Uri $uri, $secret, ?string $singleUseToken): self
+    protected static function createVerified(Uri $uri, $secret, ?string $singleUseToken): self // @phpstan-ignore-line
     {
-        if (!\class_exists(UriSigner::class)) {
+        if (!\class_exists(UriSigner::class) && !\class_exists(LegacyUriSigner::class)) {
             throw new \LogicException('symfony/http-kernel is required to verify signed URIs. composer require symfony/http-kernel.');
         }
 
@@ -86,9 +89,13 @@ final class SignedUri extends Uri
             throw new \LogicException(\sprintf('"%s" is already signed.', $uri));
         }
 
-        $signer = $secret instanceof UriSigner ? $secret : new UriSigner($secret);
+        $signer = match(true) {
+            $secret instanceof UriSigner, $secret instanceof LegacyUriSigner => $secret, // @phpstan-ignore-line
+            \class_exists(UriSigner::class) => new UriSigner($secret),
+            default => new LegacyUriSigner($secret), // @phpstan-ignore-line
+        };
 
-        if (!$signer->check($uri)) {
+        if (!$signer->check($uri)) { // @phpstan-ignore-line
             throw new InvalidSignature($uri);
         }
 
@@ -113,12 +120,14 @@ final class SignedUri extends Uri
         }
 
         // hack to get the correct parameter used
-        $parameter = \Closure::bind(fn(UriSigner $signer) => $signer->parameter, null, $signer);
+        $parameter = \Closure::bind(fn(UriSigner|LegacyUriSigner $signer) => $signer->hashParameter ?? $signer->parameter, null, $signer); // @phpstan-ignore-line
 
         // remove the _hash query parameter
         $withoutHash = $uri->withoutQueryParams($parameter($signer));
 
-        if (!(new UriSigner($singleUseToken, self::SINGLE_USE_TOKEN_KEY))->check($withoutHash)) { // @phpstan-ignore-line
+        $class = \class_exists(UriSigner::class) ? UriSigner::class : LegacyUriSigner::class; // @phpstan-ignore-line
+
+        if (!(new $class($singleUseToken, self::SINGLE_USE_TOKEN_KEY))->check($withoutHash)) { // @phpstan-ignore-line
             throw new UriAlreadyUsed($uri);
         }
 

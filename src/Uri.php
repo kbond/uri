@@ -3,7 +3,8 @@
 namespace Zenstruck;
 
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpKernel\UriSigner;
+use Symfony\Component\HttpFoundation\UriSigner;
+use Symfony\Component\HttpKernel\UriSigner as LegacyUriSigner;
 use Zenstruck\Uri\Authority;
 use Zenstruck\Uri\Host;
 use Zenstruck\Uri\Path;
@@ -340,31 +341,31 @@ class Uri implements \Stringable
     }
 
     /**
-     * @param string|UriSigner $secret
+     * @param string|UriSigner|LegacyUriSigner $secret
      */
-    final public function sign($secret): Builder
+    final public function sign($secret): Builder // @phpstan-ignore-line
     {
         return new Builder($this, $secret);
     }
 
     /**
-     * @param string|UriSigner $secret
+     * @param string|UriSigner|LegacyUriSigner $secret
      * @param string|null      $singleUseToken If passed, this value MUST change once the URL is considered "used"
      *
      * @throws ExpiredUri       if the URI has expired
      * @throws UriAlreadyUsed   if the URI has already been used
      * @throws InvalidSignature if the URI could not be verified
      */
-    final public function verify($secret, ?string $singleUseToken = null): SignedUri
+    final public function verify($secret, ?string $singleUseToken = null): SignedUri // @phpstan-ignore-line
     {
         return SignedUri::createVerified($this, $secret, $singleUseToken);
     }
 
     /**
-     * @param string|UriSigner $secret
+     * @param string|UriSigner|LegacyUriSigner $secret
      * @param string|null      $singleUseToken If passed, this value MUST change once the URL is considered "used"
      */
-    public function isVerified($secret, ?string $singleUseToken = null): bool
+    public function isVerified($secret, ?string $singleUseToken = null): bool // @phpstan-ignore-line
     {
         try {
             $this->verify($secret, $singleUseToken);

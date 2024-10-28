@@ -17,6 +17,11 @@ final class UriExtensionTest extends IntegrationTestCase
 
     protected function getFixturesDir(): string
     {
+        return self::getFixturesDirectory();
+    }
+
+    protected static function getFixturesDirectory(): string
+    {
         return __DIR__.'/Fixtures/';
     }
 }
